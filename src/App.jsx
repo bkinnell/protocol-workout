@@ -8,7 +8,7 @@ import {
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, CartesianGrid, Area, AreaChart
-} from "recharts";
+  import RecoveryProgram, { useRecoveryMode, RecoveryModeToggle } from "./RecoveryProgram";} from "recharts";
 
 // ============ FONT / TOKEN CONSTANTS ============
 const FF_HEAD = "'Bebas Neue', 'Impact', sans-serif";
@@ -523,7 +523,7 @@ function useFonts() {
 
 // ============ TOP-LEVEL APP ============
 export default function App() {
-  useFonts();
+  const [recoveryMode] = useRecoveryMode();  useFonts();
   const [profile, setProfile] = useState(null);
   const [workouts, setWorkouts] = useState([]);
   const [tab, setTab] = useState("today");
@@ -588,26 +588,32 @@ export default function App() {
         <Header profile={profile} workouts={workouts} />
         <div className="px-4">
           {tab === "today" && (
-            <Today
-              profile={profile}
-              workouts={workouts}
-              onSave={saveWorkout}
-            />
-          )}
-          {tab === "history" && (
+            recoveryMode ? (
+              <RecoveryProgram />
+            ) : (
+              <Today
+                profile={profile}
+                workouts={workouts}
+                onSave={saveWorkout}
+              />
+            )
+          )}          {tab === "history" && (
             <History workouts={workouts} onDelete={deleteWorkout} />
           )}
           {tab === "progress" && <Progress workouts={workouts} profile={profile} />}
-          {tab === "profile" && (
-            <ProfileTab
-              profile={profile}
-              setProfile={setProfile}
-              workouts={workouts}
-              reload={reloadAll}
-            />
-          )}
-        </div>
-        <Nav tab={tab} setTab={setTab} />
+         {tab === "profile" && (
+            <div>
+              <div className="px-4 pt-6">
+                <RecoveryModeToggle />
+              </div>
+              <ProfileTab
+                profile={profile}
+                setProfile={setProfile}
+                workouts={workouts}
+                reload={reloadAll}
+              />
+            </div>
+          )}        <Nav tab={tab} setTab={setTab} />
       </div>
     </div>
   );
