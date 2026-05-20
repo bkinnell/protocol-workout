@@ -612,14 +612,15 @@ export default function App() {
                 setProfile={setProfile}
                 workouts={workouts}
                 reload={reloadAll}
-              />
+           />
             </div>
-          )}        <Nav tab={tab} setTab={setTab} />
+          )}
+        </div>
+        <Nav tab={tab} setTab={setTab} />
       </div>
     </div>
   );
 }
-
 // ============ HEADER ============
 function Header({ profile, workouts }) {
   const streak = useMemo(() => {
