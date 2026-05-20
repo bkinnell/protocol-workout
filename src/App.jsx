@@ -8,7 +8,8 @@ import {
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, CartesianGrid, Area, AreaChart
-  import RecoveryProgram, { useRecoveryMode, RecoveryModeToggle } from "./RecoveryProgram";} from "recharts";
+} from "recharts";
+import RecoveryProgram, { useRecoveryMode, RecoveryModeToggle } from "./RecoveryProgram";
 
 // ============ FONT / TOKEN CONSTANTS ============
 const FF_HEAD = "'Bebas Neue', 'Impact', sans-serif";
