@@ -3,13 +3,16 @@ import {
   Dumbbell, Activity, History as HistoryIcon, User, Plus, Check, X,
   ChevronRight, ChevronLeft, Play, Square, TrendingUp, Calendar,
   Settings, Edit2, Trash2, Sparkles, Loader2, Flame, Heart, Timer,
-  ArrowRight, Zap, BarChart3, RefreshCw, Save, AlertCircle
+  ArrowRight, Zap, BarChart3, RefreshCw, Save, AlertCircle,
+  CalendarDays, Sun
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, CartesianGrid, Area, AreaChart
 } from "recharts";
 import RecoveryProgram, { useRecoveryMode, RecoveryModeToggle } from "./RecoveryProgram";
+import ScheduleTab from "./ScheduleTab";
+import MorningCheckIn, { getTodayReadiness } from "./MorningCheckIn";
 
 // ============ FONT / TOKEN CONSTANTS ============
 const FF_HEAD = "'Bebas Neue', 'Impact', sans-serif";
@@ -598,7 +601,9 @@ export default function App() {
                 onSave={saveWorkout}
               />
             )
-          )}          {tab === "history" && (
+          )}          {tab === "schedule" && <ScheduleTab />}
+          {tab === "checkin" && <MorningCheckIn />}
+          {tab === "history" && (
             <History workouts={workouts} onDelete={deleteWorkout} />
           )}
           {tab === "progress" && <Progress workouts={workouts} profile={profile} />}
@@ -2820,13 +2825,15 @@ function Field({ label, children }) {
 function Nav({ tab, setTab }) {
   const items = [
     { id: "today", label: "TODAY", icon: Flame },
+    { id: "schedule", label: "PLAN", icon: CalendarDays },
+    { id: "checkin", label: "AM", icon: Sun },
     { id: "history", label: "LOG", icon: HistoryIcon },
     { id: "progress", label: "PROGRESS", icon: TrendingUp },
     { id: "profile", label: "PROFILE", icon: User },
   ];
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800">
-      <div className="max-w-2xl mx-auto grid grid-cols-4">
+      <div className="max-w-2xl mx-auto grid grid-cols-6">
         {items.map(it => {
           const Icon = it.icon;
           const active = tab === it.id;
