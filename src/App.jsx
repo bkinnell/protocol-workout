@@ -4,14 +4,14 @@ import {
   ChevronRight, ChevronLeft, Play, Square, TrendingUp, Calendar,
   Settings, Edit2, Trash2, Sparkles, Loader2, Flame, Heart, Timer,
   ArrowRight, Zap, BarChart3, RefreshCw, Save, AlertCircle,
-  CalendarDays, Sun
+  CalendarDays, Sun, Footprints
 } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, CartesianGrid, Area, AreaChart
 } from "recharts";
 import RecoveryProgram, { useRecoveryMode, RecoveryModeToggle } from "./RecoveryProgram";
-import ScheduleTab from "./ScheduleTab";
+import ScheduleTab, { getDayData, getSessionContent } from "./ScheduleTab";
 import MorningCheckIn, { getTodayReadiness } from "./MorningCheckIn";
 
 // ============ FONT / TOKEN CONSTANTS ============
@@ -232,6 +232,19 @@ const storage = {
     catch { return null; }
   },
 };
+
+// ============ WORKOUT LOG (protocol:workouts) ============
+const WORKOUT_LOG_KEY = "protocol:workouts";
+
+function loadWorkoutLog() {
+  try { return JSON.parse(localStorage.getItem(WORKOUT_LOG_KEY) || "[]"); } catch { return []; }
+}
+
+function saveWorkoutToLog(record) {
+  const log = loadWorkoutLog();
+  log.push(record);
+  try { localStorage.setItem(WORKOUT_LOG_KEY, JSON.stringify(log)); } catch {}
+}
 
 // ============ API KEY MGMT ============
 const getApiKey = () => localStorage.getItem("protocol:apiKey") || "";
@@ -695,171 +708,468 @@ function Stat({ label, value, unit }) {
   );
 }
 
-// ============ TODAY ============
+// ============ TODAY (Schedule-based Workout Runner) ============
 function Today({ profile, workouts, onSave }) {
-  const today = isoDate();
-  const dow = todayDow();
-  const plannedType = profile.schedule[dow]?.type || "rest";
-  const existing = workouts.find(w => w.date === today);
+  const todayDate = useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }, []);
+  const dayData = useMemo(() => getDayData(todayDate), []);
+  const { effectiveType, effectiveShort, phase } = dayData;
+  const session = useMemo(() => getSessionContent(effectiveType, phase, effectiveShort), [effectiveType, phase, effectiveShort]);
 
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState(null);
+  const isLift = ["lower_a", "lower_b", "full_body"].includes(effectiveType);
+  const isRest = ["rest", "active_recovery", "walk_physio"].includes(effectiveType);
 
-  if (plannedType === "rest" && !existing) {
-    return (
-      <div className="py-12 text-center">
-        <div className="inline-flex items-center justify-center w-20 h-20 border-2 border-zinc-800 mb-6">
-          <Heart className="w-8 h-8 text-zinc-600" />
-        </div>
-        <h2
-          className="text-4xl mb-2"
-          style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}
-        >
-          REST DAY
-        </h2>
-        <p className="text-zinc-500 text-sm">
-          Recovery is training. Sleep, eat, walk.
-        </p>
-      </div>
-    );
-  }
+  const initExercises = () =>
+    (session.exercises || [])
+      .filter(ex => !ex.trim().startsWith("—") && !ex.trim().startsWith("-"))
+      .map(ex => ({ name: ex.split(" — ")[0].trim(), rawLine: ex, sets: [] }));
 
-  const onGenerate = async (forceFallback = false) => {
-    setGenerating(true);
-    setError(null);
-    try {
-      let data;
-      let usedFallback = false;
-      if (forceFallback) {
-        data = fallbackWorkout(profile, workouts, plannedType);
-        usedFallback = true;
-      } else {
-        try {
-          data = await generateWorkout(profile, workouts, plannedType);
-        } catch (apiErr) {
-          console.warn("[Protocol] API failed, using library fallback:", apiErr);
-          setError(`API: ${apiErr.message}. Used library fallback.`);
-          data = fallbackWorkout(profile, workouts, plannedType);
-          usedFallback = true;
-        }
-      }
+  const [runnerPhase, setRunnerPhase] = useState("pre");
+  const [startTime, setStartTime] = useState(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [exercises, setExercises] = useState(initExercises);
+  const [notes, setNotes] = useState("");
+  const [completionData, setCompletionData] = useState(null);
+  const [walkLogged, setWalkLogged] = useState(false);
 
-      const kind = SESSION_KIND[plannedType];
-      const w = {
-        id: `${today}-${Date.now()}`,
-        date: today,
-        type: data.type,
-        title: data.title || SESSION_LABELS[plannedType],
-        summary: data.summary,
-        sessionKind: kind,
-        completed: false,
-        startedAt: new Date().toISOString(),
-        usedFallback,
-        garminLink: null,
-        exercises: kind === "lift"
-          ? (data.exercises || []).map(e => ({
-              ...e,
-              sets: Array.from({ length: e.targetSets || 3 }, () => ({
-                weight: e.suggestedWeight || null,
-                reps: null, rpe: null, completed: false,
-              })),
-            }))
-          : null,
-        cardio: kind === "cardio"
-          ? {
-              modality: data.modality,
-              structure: data.structure || [],
-              totalDuration: data.totalDuration,
-              actualDuration: null,
-              actualDistance: null,
-              avgHr: null,
-              notes: "",
-            }
-          : null,
-        hyrox: kind === "hyrox"
-          ? {
-              subtype: data.subtype,
-              rounds: data.rounds,
-              structure: data.structure || [],
-              totalDuration: data.totalDuration,
-              actualDuration: null,
-              notes: "",
-            }
-          : null,
-      };
-      await onSave(w);
-    } catch (e) {
-      console.error("[Protocol] Total failure:", e);
-      setError(`Failed: ${e.message}. Tap RETRY or USE LIBRARY.`);
-    } finally {
-      setGenerating(false);
-    }
+  useEffect(() => {
+    if (runnerPhase !== "active" || !startTime) return;
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [runnerPhase, startTime]);
+
+  const fmtTime = s => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  const startWorkout = () => {
+    setStartTime(Date.now());
+    setElapsed(0);
+    setRunnerPhase("active");
   };
 
-  if (!existing) {
-    const kindLabel = SESSION_KIND[plannedType];
-    const subtitle =
-      kindLabel === "lift"
-        ? "Resistance training session — generated from your training history."
-        : kindLabel === "hyrox"
-        ? "Hyrox-style functional fitness session — built from race stations."
-        : "Conditioning session — paired with your strength work.";
+  const cancelWorkout = () => {
+    setRunnerPhase("pre");
+    setStartTime(null);
+    setElapsed(0);
+    setExercises(initExercises());
+    setNotes("");
+  };
+
+  const finishWorkout = () => {
+    const dur = elapsed;
+    const filled = exercises.filter(ex => ex.sets.length > 0);
+    const totalSets = filled.reduce((s, ex) => s + ex.sets.length, 0);
+    const totalVolume = filled.reduce((s, ex) =>
+      s + ex.sets.reduce((v, set) => v + (set.reps || 0) * (set.weight || 0), 0), 0);
+
+    saveWorkoutToLog({
+      date: isoDate(),
+      type: isLift ? "lift" : "cardio",
+      sessionTitle: session.title,
+      duration: dur,
+      exercises: filled.map(ex => ({ name: ex.name, sets: ex.sets })),
+      notes,
+    });
+    setCompletionData({ duration: dur, totalSets, totalVolume });
+    setRunnerPhase("done");
+  };
+
+  const logWalk = () => {
+    saveWorkoutToLog({
+      date: isoDate(),
+      type: "walk",
+      sessionTitle: session.title,
+      duration: 0,
+      exercises: [],
+      notes: "Morning walk logged",
+    });
+    setWalkLogged(true);
+  };
+
+  if (runnerPhase === "done" && completionData) {
     return (
-      <div className="py-8">
-        {error && (
-          <div className="mb-4 p-3 bg-red-950 border border-red-900 text-red-400 text-sm flex gap-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 break-words">{error}</div>
-          </div>
-        )}
-        <div
-          className="text-xs text-zinc-500 uppercase tracking-widest mb-2"
-          style={{ fontFamily: FF_MONO }}
-        >
-          {fmtDate(today)} · Today's Session
-        </div>
-        <h2
-          className="text-5xl mb-1"
-          style={{ fontFamily: FF_HEAD, letterSpacing: "0.04em" }}
-        >
-          {SESSION_LABELS[plannedType]}
-        </h2>
-        <p className="text-zinc-500 text-sm mb-8">{subtitle}</p>
-        <button
-          onClick={() => onGenerate(false)}
-          disabled={generating}
-          className="w-full bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-zinc-950 py-5 px-6 flex items-center justify-center gap-3 disabled:opacity-50 transition-colors"
-          style={{ fontFamily: FF_HEAD, fontSize: "1.5rem", letterSpacing: "0.08em" }}
-        >
-          {generating ? (
-            <>
-              <Loader2 className="w-6 h-6 animate-spin" />
-              GENERATING…
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-6 h-6" />
-              GENERATE WORKOUT
-            </>
-          )}
-        </button>
-        <button
-          onClick={() => onGenerate(true)}
-          disabled={generating}
-          className="w-full mt-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 py-3 flex items-center justify-center gap-2 transition-colors text-sm"
-          style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}
-        >
-          USE LIBRARY (no AI)
-        </button>
-      </div>
+      <WorkoutCompleteView
+        session={session}
+        completionData={completionData}
+        fmtTime={fmtTime}
+        onReset={() => {
+          setRunnerPhase("pre");
+          setCompletionData(null);
+          setExercises(initExercises());
+          setNotes("");
+        }}
+      />
     );
   }
 
-  return existing.sessionKind === "lift"
-    ? <LiftSession w={existing} workouts={workouts} onSave={onSave} />
-    : existing.sessionKind === "hyrox"
-    ? <HyroxSession w={existing} onSave={onSave} />
-    : <CardioSession w={existing} onSave={onSave} />;
+  if (runnerPhase === "active") {
+    if (isLift) {
+      return (
+        <LiftRunnerView
+          session={session}
+          elapsed={elapsed}
+          fmtTime={fmtTime}
+          exercises={exercises}
+          setExercises={setExercises}
+          notes={notes}
+          setNotes={setNotes}
+          onFinish={finishWorkout}
+          onCancel={cancelWorkout}
+        />
+      );
+    }
+    return (
+      <CardioRunnerView
+        session={session}
+        elapsed={elapsed}
+        fmtTime={fmtTime}
+        notes={notes}
+        setNotes={setNotes}
+        onFinish={finishWorkout}
+        onCancel={cancelWorkout}
+      />
+    );
+  }
+
+  if (isRest) {
+    return <RestDayView session={session} walkLogged={walkLogged} onLogWalk={logWalk} />;
+  }
+
+  return <PreWorkoutView session={session} dayData={dayData} onStart={startWorkout} />;
+}
+
+// ============ WORKOUT RUNNER SUBCOMPONENTS ============
+
+function PreWorkoutView({ session, dayData, onStart }) {
+  const { phase } = dayData;
+  return (
+    <div className="py-6">
+      {phase && (
+        <div className={`text-xs mb-3 ${phase.color}`} style={{ fontFamily: FF_MONO, letterSpacing: "0.15em" }}>
+          {phase.label}
+        </div>
+      )}
+      <div className="text-4xl text-zinc-100 mb-1" style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}>
+        {session.title}
+      </div>
+      <div className="text-sm text-zinc-400 mb-1">{session.subtitle}</div>
+      <div className="text-orange-500 text-sm mb-5" style={{ fontFamily: FF_MONO }}>
+        {session.duration}
+      </div>
+
+      {session.walk && (
+        <div className="flex items-center gap-2 mb-5 text-sm text-zinc-400 border border-zinc-800 rounded px-3 py-2.5">
+          <Footprints className="w-4 h-4 text-zinc-500 flex-shrink-0" />
+          <span style={{ fontFamily: FF_MONO, fontSize: "0.72rem" }}>MORNING WALK 30-45MIN FIRST — ALWAYS</span>
+        </div>
+      )}
+
+      {session.exercises && session.exercises.length > 0 && (
+        <div className="border border-zinc-800 rounded mb-6 overflow-hidden">
+          <div className="px-4 py-2.5 text-xs text-zinc-500 uppercase border-b border-zinc-800 bg-zinc-900/60"
+               style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}>
+            EXERCISES
+          </div>
+          <div className="divide-y divide-zinc-800">
+            {session.exercises.map((ex, i) =>
+              ex.trim().startsWith("—") || ex.trim().startsWith("-") ? (
+                <div key={i} className="px-4 py-2 text-xs text-zinc-600" style={{ fontFamily: FF_MONO }}>{ex}</div>
+              ) : (
+                <div key={i} className="px-4 py-3 flex items-start gap-3">
+                  <span className="text-orange-500 text-xs mt-0.5 flex-shrink-0" style={{ fontFamily: FF_MONO }}>
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-sm text-zinc-300">{ex}</span>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+
+      <button
+        onClick={onStart}
+        className="w-full py-5 bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-zinc-950 transition-colors"
+        style={{ fontFamily: FF_HEAD, fontSize: "1.5rem", letterSpacing: "0.08em" }}
+      >
+        START WORKOUT
+      </button>
+    </div>
+  );
+}
+
+function RestDayView({ session, walkLogged, onLogWalk }) {
+  return (
+    <div className="py-6">
+      <div className="text-4xl text-zinc-100 mb-1" style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}>
+        {session.title}
+      </div>
+      <div className="text-sm text-zinc-400 mb-6">{session.subtitle}</div>
+      <div className="border border-zinc-800 rounded mb-6 overflow-hidden">
+        <div className="divide-y divide-zinc-800">
+          {(session.exercises || []).map((ex, i) => (
+            <div key={i} className="px-4 py-3 text-sm text-zinc-400">{ex}</div>
+          ))}
+        </div>
+      </div>
+      {walkLogged ? (
+        <div className="w-full py-4 bg-green-950 border border-green-900 text-green-400 text-center rounded"
+             style={{ fontFamily: FF_HEAD, fontSize: "1.25rem", letterSpacing: "0.08em" }}>
+          ✓ WALK LOGGED
+        </div>
+      ) : (
+        <button
+          onClick={onLogWalk}
+          className="w-full py-4 border border-orange-500/40 text-orange-500 hover:bg-orange-500/10 transition-colors rounded"
+          style={{ fontFamily: FF_HEAD, fontSize: "1.25rem", letterSpacing: "0.08em" }}
+        >
+          LOG WALK
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ExerciseRunnerCard({ ex, lastWeight, onUpdateSets }) {
+  const [logging, setLogging] = useState(false);
+  const [inputReps, setInputReps] = useState("");
+  const [inputWeight, setInputWeight] = useState(lastWeight != null ? String(lastWeight) : "");
+
+  const confirmSet = () => {
+    if (!inputReps) return;
+    onUpdateSets([...ex.sets, { reps: Number(inputReps), weight: inputWeight ? Number(inputWeight) : 0 }]);
+    setInputReps("");
+    setLogging(false);
+  };
+
+  return (
+    <div className="border border-zinc-800 bg-zinc-900/50 rounded p-4">
+      <div className="text-base text-zinc-100 mb-3" style={{ fontFamily: FF_HEAD, letterSpacing: "0.03em" }}>
+        {ex.name}
+      </div>
+      {ex.sets.length > 0 && (
+        <div className="mb-3 space-y-1.5">
+          {ex.sets.map((set, i) => (
+            <div key={i} className="flex items-center gap-3 text-sm">
+              <span className="text-xs text-zinc-600 w-10 flex-shrink-0" style={{ fontFamily: FF_MONO }}>SET {i + 1}</span>
+              <span className="text-zinc-200 flex-shrink-0" style={{ fontFamily: FF_MONO }}>{set.reps} reps</span>
+              {set.weight > 0 && (
+                <span className="text-zinc-400 flex-shrink-0" style={{ fontFamily: FF_MONO }}>{set.weight} lbs</span>
+              )}
+              <button
+                onClick={() => onUpdateSets(ex.sets.filter((_, j) => j !== i))}
+                className="ml-auto text-zinc-700 hover:text-red-500 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {logging ? (
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            type="number" inputMode="numeric" placeholder="Reps"
+            value={inputReps} onChange={e => setInputReps(e.target.value)}
+            className="w-20 bg-zinc-950 border border-zinc-700 px-2 py-2 text-sm text-zinc-100 focus:outline-none focus:border-orange-500 text-center rounded"
+            style={{ fontFamily: FF_MONO }}
+            autoFocus
+          />
+          <input
+            type="number" inputMode="decimal" placeholder="lbs"
+            value={inputWeight} onChange={e => setInputWeight(e.target.value)}
+            className="w-20 bg-zinc-950 border border-zinc-700 px-2 py-2 text-sm text-zinc-100 focus:outline-none focus:border-orange-500 text-center rounded"
+            style={{ fontFamily: FF_MONO }}
+          />
+          <button
+            onClick={confirmSet}
+            className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-zinc-950 text-sm rounded transition-colors"
+            style={{ fontFamily: FF_MONO }}
+          >
+            ✓
+          </button>
+          <button onClick={() => setLogging(false)} className="p-2 text-zinc-600 hover:text-zinc-400 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setLogging(true)}
+          className="w-full py-2 border border-dashed border-zinc-700 hover:border-orange-500 text-zinc-500 hover:text-orange-500 text-xs transition-colors rounded mt-1"
+          style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}
+        >
+          + LOG SET
+        </button>
+      )}
+    </div>
+  );
+}
+
+function LiftRunnerView({ session, elapsed, fmtTime, exercises, setExercises, notes, setNotes, onFinish, onCancel }) {
+  const workoutLog = useMemo(() => loadWorkoutLog(), []);
+  const totalSets = exercises.reduce((s, ex) => s + ex.sets.length, 0);
+
+  const getLastWeight = (name) => {
+    for (let i = workoutLog.length - 1; i >= 0; i--) {
+      const ex = (workoutLog[i].exercises || []).find(e => e.name.toLowerCase() === name.toLowerCase());
+      if (ex) {
+        const withW = (ex.sets || []).filter(s => s.weight > 0);
+        if (withW.length) return withW[withW.length - 1].weight;
+      }
+    }
+    return null;
+  };
+
+  return (
+    <div className="py-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <div className="text-xs text-zinc-500 uppercase mb-1" style={{ fontFamily: FF_MONO, letterSpacing: "0.15em" }}>
+            {session.title}
+          </div>
+          <div className="text-5xl text-orange-500" style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}>
+            {fmtTime(elapsed)}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-xs text-zinc-500" style={{ fontFamily: FF_MONO }}>SETS</div>
+          <div className="text-3xl text-zinc-200" style={{ fontFamily: FF_HEAD }}>{totalSets}</div>
+        </div>
+      </div>
+
+      <div className="space-y-3 mb-5">
+        {exercises.map((ex, idx) => (
+          <ExerciseRunnerCard
+            key={idx}
+            ex={ex}
+            lastWeight={getLastWeight(ex.name)}
+            onUpdateSets={newSets => setExercises(prev => prev.map((e, i) => i === idx ? { ...e, sets: newSets } : e))}
+          />
+        ))}
+      </div>
+
+      <textarea
+        placeholder="Notes..."
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+        className="w-full bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-orange-500 mb-4 min-h-16 rounded"
+        style={{ fontFamily: FF_BODY }}
+      />
+
+      <button
+        onClick={onFinish}
+        className="w-full py-4 bg-orange-500 hover:bg-orange-400 text-zinc-950 mb-2 transition-colors"
+        style={{ fontFamily: FF_HEAD, fontSize: "1.25rem", letterSpacing: "0.08em" }}
+      >
+        FINISH WORKOUT
+      </button>
+      <button
+        onClick={onCancel}
+        className="w-full py-3 border border-zinc-800 text-zinc-500 hover:border-zinc-600 transition-colors text-sm"
+        style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}
+      >
+        CANCEL
+      </button>
+    </div>
+  );
+}
+
+function CardioRunnerView({ session, elapsed, fmtTime, notes, setNotes, onFinish, onCancel }) {
+  return (
+    <div className="py-6">
+      <div className="mb-6">
+        <div className="text-xs text-zinc-500 uppercase mb-1" style={{ fontFamily: FF_MONO, letterSpacing: "0.15em" }}>
+          {session.title}
+        </div>
+        <div className="text-6xl text-orange-500 mb-2" style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}>
+          {fmtTime(elapsed)}
+        </div>
+        <div className="text-sm text-zinc-500" style={{ fontFamily: FF_MONO }}>
+          TARGET: {session.duration}
+        </div>
+      </div>
+
+      {session.exercises && session.exercises.length > 0 && (
+        <div className="border border-zinc-800 rounded mb-5 overflow-hidden">
+          <div className="divide-y divide-zinc-800">
+            {session.exercises.map((ex, i) => (
+              <div key={i} className="px-4 py-3 text-sm text-zinc-400">{ex}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <textarea
+        placeholder="Notes..."
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+        className="w-full bg-zinc-900 border border-zinc-800 px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-orange-500 mb-4 min-h-16 rounded"
+        style={{ fontFamily: FF_BODY }}
+      />
+
+      <button
+        onClick={onFinish}
+        className="w-full py-4 bg-orange-500 hover:bg-orange-400 text-zinc-950 mb-2 transition-colors"
+        style={{ fontFamily: FF_HEAD, fontSize: "1.25rem", letterSpacing: "0.08em" }}
+      >
+        FINISH WORKOUT
+      </button>
+      <button
+        onClick={onCancel}
+        className="w-full py-3 border border-zinc-800 text-zinc-500 hover:border-zinc-600 transition-colors text-sm"
+        style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}
+      >
+        CANCEL
+      </button>
+    </div>
+  );
+}
+
+function WorkoutCompleteView({ session, completionData, fmtTime, onReset }) {
+  const { duration, totalSets, totalVolume } = completionData;
+  return (
+    <div className="py-6">
+      <div className="text-xs text-zinc-500 uppercase mb-2" style={{ fontFamily: FF_MONO, letterSpacing: "0.15em" }}>
+        Workout Complete
+      </div>
+      <div className="text-5xl text-orange-500 mb-6" style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}>
+        {session.title}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="border border-zinc-800 rounded p-3 text-center">
+          <div className="text-xs text-zinc-500 mb-1" style={{ fontFamily: FF_MONO }}>TIME</div>
+          <div className="text-2xl text-zinc-100" style={{ fontFamily: FF_HEAD }}>{fmtTime(duration)}</div>
+        </div>
+        <div className="border border-zinc-800 rounded p-3 text-center">
+          <div className="text-xs text-zinc-500 mb-1" style={{ fontFamily: FF_MONO }}>SETS</div>
+          <div className="text-2xl text-zinc-100" style={{ fontFamily: FF_HEAD }}>{totalSets}</div>
+        </div>
+        <div className="border border-zinc-800 rounded p-3 text-center">
+          <div className="text-xs text-zinc-500 mb-1" style={{ fontFamily: FF_MONO }}>VOLUME</div>
+          <div className="text-2xl text-zinc-100" style={{ fontFamily: FF_HEAD }}>
+            {totalVolume > 0 ? `${(totalVolume / 1000).toFixed(1)}k` : "—"}
+          </div>
+          {totalVolume > 0 && <div className="text-xs text-zinc-600" style={{ fontFamily: FF_MONO }}>lbs</div>}
+        </div>
+      </div>
+
+      <div className="border border-green-900 bg-green-950/40 rounded p-4 mb-6 text-center">
+        <div className="text-2xl text-green-400" style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}>
+          ✓ LOGGED
+        </div>
+        <div className="text-xs text-green-800 mt-1" style={{ fontFamily: FF_MONO }}>
+          Saved to workout history
+        </div>
+      </div>
+
+      <button
+        onClick={onReset}
+        className="w-full py-3 border border-zinc-800 text-zinc-500 hover:border-zinc-600 transition-colors text-sm"
+        style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}
+      >
+        BACK TO TODAY
+      </button>
+    </div>
+  );
 }
 
 // ============ EXERCISE PICKER (manual add by muscle) ============
@@ -2194,6 +2504,79 @@ function Progress({ workouts, profile }) {
             ))}
           </div>
         </>
+      )}
+
+      <ExerciseHistory />
+    </div>
+  );
+}
+
+function ExerciseHistory() {
+  const [selected, setSelected] = useState(null);
+  const log = useMemo(() => loadWorkoutLog(), []);
+
+  const exerciseMap = useMemo(() => {
+    const map = {};
+    log.forEach(w => {
+      (w.exercises || []).forEach(ex => {
+        if (!map[ex.name]) map[ex.name] = [];
+        const topWeight = (ex.sets || []).reduce((max, s) => Math.max(max, s.weight || 0), 0);
+        if (topWeight > 0) map[ex.name].push({ date: w.date.slice(5), topWeight, date_full: w.date });
+      });
+    });
+    Object.values(exerciseMap || {}).forEach(arr => arr.sort((a, b) => a.date_full < b.date_full ? -1 : 1));
+    return map;
+  }, [log]);
+
+  const exerciseNames = Object.keys(exerciseMap).sort();
+  if (!exerciseNames.length) return null;
+
+  const chartData = selected ? (exerciseMap[selected] || []) : [];
+
+  return (
+    <div className="mb-8">
+      <div className="text-xs text-zinc-500 mb-3 uppercase" style={{ fontFamily: FF_MONO, letterSpacing: "0.15em" }}>
+        EXERCISE HISTORY
+      </div>
+      <div className="overflow-x-auto mb-3 -mx-1 px-1">
+        <div className="flex gap-2 min-w-max pb-1">
+          {exerciseNames.map(name => (
+            <button
+              key={name}
+              onClick={() => setSelected(selected === name ? null : name)}
+              className={`px-3 py-1.5 text-xs border whitespace-nowrap transition-colors rounded ${
+                selected === name
+                  ? "border-orange-500 bg-orange-950 text-orange-500"
+                  : "border-zinc-800 text-zinc-400 hover:border-zinc-600"
+              }`}
+              style={{ fontFamily: FF_MONO, letterSpacing: "0.05em" }}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selected && chartData.length > 0 && (
+        <div className="border border-zinc-800 bg-zinc-900 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm uppercase" style={{ fontFamily: FF_HEAD, letterSpacing: "0.03em" }}>
+              {selected}
+            </div>
+            <div className="text-xs text-orange-500" style={{ fontFamily: FF_MONO }}>
+              {chartData[chartData.length - 1].topWeight} lbs
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={120}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="2 4" stroke="#27272a" vertical={false} />
+              <XAxis dataKey="date" tick={{ fill: "#71717a", fontSize: 10, fontFamily: "monospace" }} axisLine={{ stroke: "#3f3f46" }} />
+              <YAxis domain={["dataMin - 5", "dataMax + 5"]} tick={{ fill: "#71717a", fontSize: 10, fontFamily: "monospace" }} axisLine={{ stroke: "#3f3f46" }} />
+              <Tooltip contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", fontFamily: "monospace", fontSize: 12 }} />
+              <Line type="monotone" dataKey="topWeight" stroke="#f97316" strokeWidth={2} dot={{ fill: "#f97316", r: 3 }} name="Top Weight" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
       )}
     </div>
   );

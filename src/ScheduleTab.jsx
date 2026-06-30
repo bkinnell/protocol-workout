@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ChevronLeft, ChevronRight, Edit2, Check, X,
   Footprints, Bike, Dumbbell, Activity, Heart,
@@ -928,3 +928,5 @@ export default function ScheduleTab() {
     </div>
   );
 }
+
+export { getDayData, getSessionContent };
