@@ -12,7 +12,7 @@ const FF_BODY = "'IBM Plex Sans', system-ui, sans-serif";
 
 // ============ PROGRAM DATA ============
 const PROGRAM = {
-  name: "Post-Op AC ‚Üí Hyrox Doubles",
+  name: "Post-Op AC -> Hyrox Doubles",
   startDate: "2026-05-15", // Surgery date
   raceDate: "2026-10-01",
   phases: [
@@ -27,17 +27,17 @@ const PROGRAM = {
         1: { type: "walk", title: "Easy Walk", duration: "60-75min", detail: "Conversational pace", icon: "walk" },
         2: { type: "bike", title: "Z2 Bike", duration: "45min", detail: "Upright/recumbent only. Don't lean on bars.", icon: "bike" },
         3: { type: "walk_bw", title: "Walk + BW Lower", duration: "75min", detail: "60min walk + lower bodyweight circuit", icon: "walk", exercises: [
-          "BW squats ‚Äî 3 √ó 15",
-          "Wall sits ‚Äî 3 √ó 30s",
-          "Single-leg balance ‚Äî 3 √ó 30s/side",
-          "Standing hip abduction ‚Äî 3 √ó 12/side",
-          "Standing calf raises ‚Äî 3 √ó 20",
-          "Glute bridges (arms at sides) ‚Äî 3 √ó 15",
+          "BW squats - 3 x 15",
+          "Wall sits - 3 x 30s",
+          "Single-leg balance - 3 x 30s/side",
+          "Standing hip abduction - 3 x 12/side",
+          "Standing calf raises - 3 x 20",
+          "Glute bridges (arms at sides) - 3 x 15",
         ] },
         4: { type: "bike", title: "Z2 Bike", duration: "45min", detail: "Upright/recumbent only.", icon: "bike" },
         5: { type: "walk", title: "Easy Walk", duration: "75min", detail: "Conversational pace", icon: "walk" },
         6: { type: "bike", title: "Z2 Bike", duration: "60min", detail: "Long Z2.", icon: "bike" },
-        0: { type: "rest", title: "Rest", duration: "‚Äî", detail: "Recovery day. Optional gentle walk.", icon: "rest" },
+        0: { type: "rest", title: "Rest", duration: "-", detail: "Recovery day. Optional gentle walk.", icon: "rest" },
       },
     },
     {
@@ -49,31 +49,31 @@ const PROGRAM = {
       avoid: ["Upper body loading (physio-only)", "Carrying anything surgical side", "Sleeping on surgical side"],
       sessions: {
         1: { type: "lift", title: "Lower Strength A", duration: "45-60min", detail: "Lower body, no shoulder load", icon: "lift", exercises: [
-          "Leg press ‚Äî 4 √ó 10",
-          "Bulgarian split squat (DBs at sides, non-surgical only) ‚Äî 3 √ó 10/leg",
-          "RDL with DBs at sides ‚Äî 3 √ó 10",
-          "Single-leg glute bridge ‚Äî 3 √ó 12/leg",
-          "Standing calf raises ‚Äî 3 √ó 15",
-          "Dead bug (no arms) ‚Äî 3 √ó 10/side",
+          "Leg press - 4 x 10",
+          "Bulgarian split squat (DBs at sides, non-surgical only) - 3 x 10/leg",
+          "RDL with DBs at sides - 3 x 10",
+          "Single-leg glute bridge - 3 x 12/leg",
+          "Standing calf raises - 3 x 15",
+          "Dead bug (no arms) - 3 x 10/side",
         ] },
         2: { type: "run", title: "Easy Run", duration: "20-30min", detail: "Z2. See weekly progression in phase notes.", icon: "run" },
-        3: { type: "bike_intervals", title: "Bike Intervals", duration: "40min", detail: "5 √ó 3min moderate / 2min easy", icon: "bike" },
+        3: { type: "bike_intervals", title: "Bike Intervals", duration: "40min", detail: "5 x 3min moderate / 2min easy", icon: "bike" },
         4: { type: "physio_walk", title: "Physio + Walk", duration: "45min walk", detail: "Physio session + 45min easy walk", icon: "walk" },
         5: { type: "lift", title: "Lower Strength B", duration: "45-60min", detail: "Lower body + light carries", icon: "lift", exercises: [
-          "Hack squat OR leg press ‚Äî 4 √ó 10",
-          "Hip thrust (pad shoulders) ‚Äî 3 √ó 10",
-          "Step-ups (non-surgical hand DB) ‚Äî 3 √ó 10/leg",
-          "Hamstring curl ‚Äî 3 √ó 12",
-          "Suitcase carry (non-surgical only) ‚Äî 4 √ó 30m",
-          "Pallof press (light, non-surgical) ‚Äî 3 √ó 10",
+          "Hack squat OR leg press - 4 x 10",
+          "Hip thrust (pad shoulders) - 3 x 10",
+          "Step-ups (non-surgical hand DB) - 3 x 10/leg",
+          "Hamstring curl - 3 x 12",
+          "Suitcase carry (non-surgical only) - 4 x 30m",
+          "Pallof press (light, non-surgical) - 3 x 10",
         ] },
         6: { type: "run", title: "Easy Run", duration: "30-40min", detail: "Z2 conversational", icon: "run" },
-        0: { type: "rest", title: "Rest", duration: "‚Äî", detail: "Recovery day.", icon: "rest" },
+        0: { type: "rest", title: "Rest", duration: "-", detail: "Recovery day.", icon: "rest" },
       },
       runProgression: {
-        5: "Walk 5 / Jog 2 √ó 4 (~30min)",
-        6: "Walk 3 / Jog 5 √ó 4 (~35min)",
-        7: "Walk 2 / Jog 8 √ó 3 (~35min)",
+        5: "Walk 5 / Jog 2 x 4 (~30min)",
+        6: "Walk 3 / Jog 5 x 4 (~35min)",
+        7: "Walk 2 / Jog 8 x 3 (~35min)",
         8: "Continuous easy 25-30min",
       },
     },
@@ -82,22 +82,22 @@ const PROGRAM = {
       name: "STRENGTHEN",
       subtitle: "Light Loading Begins",
       weeks: [9, 10, 11, 12],
-      shoulder: "Light strengthening per physio. Their list only ‚Äî nothing extra.",
+      shoulder: "Light strengthening per physio. Their list only - nothing extra.",
       avoid: ["Wall balls", "SkiErg", "Sled pull", "Sandbag carries", "Burpee broad jumps (yet)"],
       sessions: {
         1: { type: "lift", title: "Lower (Heavier) + Cleared Upper", duration: "60min", detail: "Lower near full capacity + physio-prescribed upper only", icon: "lift" },
-        2: { type: "run", title: "Run Intervals", duration: "45min", detail: "6 √ó 600m moderate / 90s rest", icon: "run" },
+        2: { type: "run", title: "Run Intervals", duration: "45min", detail: "6 x 600m moderate / 90s rest", icon: "run" },
         3: { type: "bike_core", title: "Z2 Bike + Core", duration: "60min", detail: "60min Z2 bike + core circuit", icon: "bike" },
         4: { type: "run", title: "Easy Run", duration: "30-40min", detail: "Z2", icon: "run" },
         5: { type: "lift", title: "Lower Strength + Carries", duration: "60min", detail: "Bilateral carries if cleared, short distance", icon: "lift" },
         6: { type: "run", title: "Long Z2 Run", duration: "45-60min", detail: "Build to 60min by W12", icon: "run" },
-        0: { type: "rest", title: "Rest", duration: "‚Äî", detail: "Recovery day.", icon: "rest" },
+        0: { type: "rest", title: "Rest", duration: "-", detail: "Recovery day.", icon: "rest" },
       },
       stations: {
         intro: "Begin practicing (light, only if shoulder cleared):",
         list: [
           "W11+: Sled push, HIGH handles, light weight",
-          "W12: Rowing ‚Äî technique only, light pull",
+          "W12: Rowing - technique only, light pull",
           "W12: Burpee step-back (NO jump, NO push-up)",
         ],
       },
@@ -111,12 +111,12 @@ const PROGRAM = {
       doublesNote: "Lock in station split with partner. You take legs-dominant; partner takes overhead.",
       sessions: {
         1: { type: "lift", title: "Strength", duration: "60min", detail: "Full lower + physio-cleared upper", icon: "lift" },
-        2: { type: "run_station", title: "Compromised Running", duration: "45min", detail: "4 √ó (800m race pace + station)", icon: "run" },
+        2: { type: "run_station", title: "Compromised Running", duration: "45min", detail: "4 x (800m race pace + station)", icon: "run" },
         3: { type: "station_skill", title: "Station Skill Day", duration: "45min", detail: "Technique on stations, sub-race pace", icon: "lift" },
         4: { type: "run", title: "Easy Run", duration: "45-50min", detail: "Z2", icon: "run" },
         5: { type: "lift_power", title: "Strength + Power", duration: "60min", detail: "Broad jumps, KB work as cleared", icon: "lift" },
         6: { type: "run", title: "Long Z2 Run", duration: "60-75min", detail: "Conversational", icon: "run" },
-        0: { type: "rest", title: "Rest", duration: "‚Äî", detail: "Recovery.", icon: "rest" },
+        0: { type: "rest", title: "Rest", duration: "-", detail: "Recovery.", icon: "rest" },
       },
       stationSplit: {
         you: ["Sled push", "Rowing", "Burpee broad jumps (if cleared)", "Running"],
@@ -137,7 +137,7 @@ const PROGRAM = {
         4: { type: "run", title: "Easy Run", duration: "30-40min", detail: "Z2", icon: "run" },
         5: { type: "lift", title: "Light Strength / Mobility", duration: "30min", detail: "Movement quality", icon: "lift" },
         6: { type: "run", title: "Long Run w/ Tempo", duration: "60min", detail: "W18: last 20min tempo. W19: 20min + strides. W20: 15min shakeout.", icon: "run" },
-        0: { type: "rest", title: "Rest", duration: "‚Äî", detail: "Recovery.", icon: "rest" },
+        0: { type: "rest", title: "Rest", duration: "-", detail: "Recovery.", icon: "rest" },
       },
       raceWeek: "Week 20 = race week. Sat or Sun = RACE DAY.",
     },
@@ -194,8 +194,12 @@ function setCompletion(dateKey, value) {
 // ============ COMPONENT ============
 export default function RecoveryProgram() {
   const [viewedPhaseId, setViewedPhaseId] = useState(null);
-  const [completions, setCompletions] = useState(getCompletions());
+  const [completions, setCompletions] = useState({});
   const [showCheckpoint, setShowCheckpoint] = useState(true);
+
+  useEffect(() => {
+    setCompletions(getCompletions());
+  }, []);
 
   const today = new Date();
   const start = new Date(PROGRAM.startDate);
@@ -242,7 +246,7 @@ export default function RecoveryProgram() {
               Recovery Program
             </div>
             <div className="text-3xl text-orange-500" style={{ fontFamily: FF_HEAD, letterSpacing: "0.05em" }}>
-              WEEK {weekNumber} ¬∑ DAY {daysSince + 1}
+              WEEK {weekNumber} · DAY {daysSince + 1}
             </div>
           </div>
           <div className="text-right">
@@ -277,7 +281,7 @@ export default function RecoveryProgram() {
               <AlertCircle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <div className="text-orange-500 text-sm uppercase mb-1" style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}>
-                  Checkpoint ¬∑ Week {nextCheckpoint.week}
+                  Checkpoint · Week {nextCheckpoint.week}
                 </div>
                 <div className="text-zinc-100 mb-1" style={{ fontFamily: FF_HEAD, fontSize: "1.5rem", letterSpacing: "0.03em" }}>
                   {nextCheckpoint.title.toUpperCase()}
@@ -294,7 +298,7 @@ export default function RecoveryProgram() {
         {/* TODAY'S SESSION */}
         <div className="mb-6">
           <div className="text-xs text-zinc-500 uppercase mb-3" style={{ fontFamily: FF_MONO, letterSpacing: "0.15em" }}>
-            Today ¬∑ {["SUN","MON","TUE","WED","THU","FRI","SAT"][dayOfWeek]}
+            Today · {["SUN","MON","TUE","WED","THU","FRI","SAT"][dayOfWeek]}
           </div>
           <div className={`border ${isCompleteToday ? "border-orange-500/50 bg-orange-500/5" : "border-zinc-800"} rounded p-5`}>
             <div className="flex items-start gap-4 mb-4">
@@ -347,7 +351,7 @@ export default function RecoveryProgram() {
                 }`}
                 style={{ fontFamily: FF_MONO, letterSpacing: "0.1em" }}
               >
-                {isCompleteToday ? "‚úì COMPLETED" : "MARK COMPLETE"}
+                {isCompleteToday ? "✓ COMPLETED" : "MARK COMPLETE"}
               </button>
             )}
           </div>
@@ -389,7 +393,7 @@ export default function RecoveryProgram() {
                     Avoid
                   </div>
                   <ul className="text-sm text-zinc-400 space-y-1 mb-3">
-                    {viewedPhase.avoid.map((a, i) => <li key={i}>¬∑ {a}</li>)}
+                    {viewedPhase.avoid.map((a, i) => <li key={i}>· {a}</li>)}
                   </ul>
                 </>
               )}
@@ -400,11 +404,11 @@ export default function RecoveryProgram() {
                     Doubles Split
                   </div>
                   <div className="text-xs text-zinc-500 mb-1" style={{ fontFamily: FF_MONO }}>YOU TAKE</div>
-                  <div className="text-sm text-zinc-300 mb-2">{viewedPhase.stationSplit.you.join(" ¬∑ ")}</div>
+                  <div className="text-sm text-zinc-300 mb-2">{viewedPhase.stationSplit.you.join(" · ")}</div>
                   <div className="text-xs text-zinc-500 mb-1" style={{ fontFamily: FF_MONO }}>PARTNER TAKES</div>
-                  <div className="text-sm text-zinc-300 mb-2">{viewedPhase.stationSplit.partner.join(" ¬∑ ")}</div>
+                  <div className="text-sm text-zinc-300 mb-2">{viewedPhase.stationSplit.partner.join(" · ")}</div>
                   <div className="text-xs text-zinc-500 mb-1" style={{ fontFamily: FF_MONO }}>GAME-TIME</div>
-                  <div className="text-sm text-zinc-300">{viewedPhase.stationSplit.gameTime.join(" ¬∑ ")}</div>
+                  <div className="text-sm text-zinc-300">{viewedPhase.stationSplit.gameTime.join(" · ")}</div>
                 </>
               )}
 
@@ -415,7 +419,7 @@ export default function RecoveryProgram() {
                   </div>
                   <div className="text-sm text-zinc-400 mb-2">{viewedPhase.stations.intro}</div>
                   <ul className="text-sm text-zinc-300 space-y-1">
-                    {viewedPhase.stations.list.map((s, i) => <li key={i}>¬∑ {s}</li>)}
+                    {viewedPhase.stations.list.map((s, i) => <li key={i}>· {s}</li>)}
                   </ul>
                 </>
               )}
@@ -507,7 +511,7 @@ const RECOVERY_MODE_EVENT = "protocol-recovery-mode-change";
 export function getRecoveryMode() {
   try {
     const stored = localStorage.getItem(RECOVERY_MODE_KEY);
-    // Default ON ‚Äî this is being added mid-recovery
+    // Default ON - this is being added mid-recovery
     return stored === null ? true : stored === "true";
   } catch { return true; }
 }
@@ -553,8 +557,8 @@ export function RecoveryModeToggle() {
           </div>
           <div className="text-xs text-zinc-500 mt-1" style={{ fontFamily: FF_MONO }}>
             {enabled
-              ? `WEEK ${weekNumber} ¬∑ ${daysToRace}D TO RACE`
-              : "NORMAL PROTOCOL ¬∑ AI WORKOUTS"}
+              ? `WEEK ${weekNumber} · ${daysToRace}D TO RACE`
+              : "NORMAL PROTOCOL · AI WORKOUTS"}
           </div>
         </div>
         <button

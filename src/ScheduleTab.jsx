@@ -556,8 +556,8 @@ function CarbBadge({ level }) {
 }
 
 function WeekStrip({ today, selectedDate, onSelect }) {
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay());
+  const startOfWeek = new Date(selectedDate);
+  startOfWeek.setDate(selectedDate.getDate() - selectedDate.getDay());
 
   return (
     <div className="grid grid-cols-7 gap-1 mb-4">
@@ -848,22 +848,30 @@ export default function ScheduleTab() {
         <WeekStrip today={today} selectedDate={selectedDate} onSelect={setSelectedDate} />
 
         {/* WEEK NAVIGATION */}
-        <div className="flex items-center justify-between mb-5">
-          <button onClick={() => setSelectedDate(addDays(selectedDate, -7))}
-            className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300" style={{ fontFamily: FF_MONO }}>
-            <ChevronLeft className="w-4 h-4" /> PREV WEEK
-          </button>
-          {!isToday && (
-            <button onClick={() => setSelectedDate(today)}
-              className="text-xs text-orange-500 border border-orange-500/40 px-3 py-1 rounded" style={{ fontFamily: FF_MONO }}>
-              TODAY
-            </button>
-          )}
-          <button onClick={() => setSelectedDate(addDays(selectedDate, 7))}
-            className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300" style={{ fontFamily: FF_MONO }}>
-            NEXT WEEK <ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+        {(() => {
+          const canGoNext = addDays(selectedDate, 7) <= addDays(today, 14);
+          return (
+            <div className="flex items-center justify-between mb-5">
+              <button onClick={() => setSelectedDate(addDays(selectedDate, -7))}
+                className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300" style={{ fontFamily: FF_MONO }}>
+                <ChevronLeft className="w-4 h-4" /> PREV WEEK
+              </button>
+              {!isToday && (
+                <button onClick={() => setSelectedDate(today)}
+                  className="text-xs text-orange-500 border border-orange-500/40 px-3 py-1 rounded" style={{ fontFamily: FF_MONO }}>
+                  TODAY
+                </button>
+              )}
+              <button
+                onClick={() => canGoNext && setSelectedDate(addDays(selectedDate, 7))}
+                disabled={!canGoNext}
+                className={`flex items-center gap-1 text-xs ${canGoNext ? "text-zinc-500 hover:text-zinc-300" : "text-zinc-700 cursor-not-allowed"}`}
+                style={{ fontFamily: FF_MONO }}>
+                NEXT WEEK <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          );
+        })()}
 
         {/* TODAY/SELECTED SESSION */}
         <div className="mb-2">
@@ -911,12 +919,6 @@ export default function ScheduleTab() {
           <FoodTimingCard dayData={dayData} tomorrowData={tomorrowData} phase={phase} />
         </div>
 
-        {/* PEPTIDE CHECKLIST — only show for today */}
-        {isToday && (
-          <div className="mb-5">
-            <PeptideChecklist dateStr={peptideDate} phase={phase} />
-          </div>
-        )}
 
       </div>
 

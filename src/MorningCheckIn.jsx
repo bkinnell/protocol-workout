@@ -79,6 +79,91 @@ const DEFAULT_STATE = {
   nutritionDinnerLight: false,
 };
 
+// ============ PEPTIDE SCHEDULE ============
+const PEPTIDE_NOTES = {
+  "CJC-1295": "GHRH - GH pulse, take fasted",
+  "Ipamorelin": "GH secretagogue, clean",
+  "Tesamorelin": "Visceral fat reduction",
+  "Retatrutide": "Fat loss + appetite suppression",
+  "MOTS-c": "Mitochondrial + exercise performance",
+  "SS-31": "Recovery + surgical healing",
+};
+
+// 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
+// MOTS-c: Mon/Wed/Fri/Sun (every other day starting Mon)
+// SS-31: Tue/Thu/Sat/Mon (every other day starting Tue)
+const PEPTIDE_EXTRAS = {
+  0: ["Retatrutide", "MOTS-c"],
+  1: ["MOTS-c", "SS-31"],
+  2: ["SS-31"],
+  3: ["MOTS-c"],
+  4: ["Retatrutide", "SS-31"],
+  5: ["MOTS-c"],
+  6: ["SS-31"],
+};
+
+function getTodayPeptides() {
+  const dow = new Date().getDay();
+  const daily = ["CJC-1295", "Ipamorelin", "Tesamorelin"];
+  const extras = PEPTIDE_EXTRAS[dow] || [];
+  return [...daily, ...extras].map(name => ({ name, note: PEPTIDE_NOTES[name] }));
+}
+
+const PEPTIDE_STORAGE_KEY = "protocol_peptides_";
+
+function loadPeptideChecks(dateStr) {
+  try { return JSON.parse(localStorage.getItem(PEPTIDE_STORAGE_KEY + dateStr) || "{}"); } catch { return {}; }
+}
+function savePeptideChecks(dateStr, v) {
+  try { localStorage.setItem(PEPTIDE_STORAGE_KEY + dateStr, JSON.stringify(v)); } catch {}
+}
+
+function PeptideChecklist() {
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const peptides = getTodayPeptides();
+  const [checked, setChecked] = useState({});
+
+  useEffect(() => {
+    setChecked(loadPeptideChecks(dateStr));
+  }, [dateStr]);
+
+  const toggle = (name) => {
+    const next = { ...checked, [name]: !checked[name] };
+    setChecked(next);
+    savePeptideChecks(dateStr, next);
+  };
+
+  const doneCount = peptides.filter(p => checked[p.name]).length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <SectionLabel>Peptides — Morning Fasted</SectionLabel>
+        <div className="text-xs px-2 py-1 rounded border text-blue-400 border-blue-400/40" style={{ fontFamily: FF_MONO }}>
+          {doneCount}/{peptides.length}
+        </div>
+      </div>
+      <div className="space-y-2">
+        {peptides.map(({ name, note }) => (
+          <button key={name} onClick={() => toggle(name)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded border transition-colors text-left ${checked[name] ? "border-orange-500/40 bg-orange-500/5" : "border-zinc-800"}`}>
+            <div className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 ${checked[name] ? "border-orange-500 bg-orange-500" : "border-zinc-600"}`}>
+              {checked[name] && <Check className="w-3 h-3 text-zinc-950" />}
+            </div>
+            <div>
+              <div className="text-sm text-zinc-100" style={{ fontFamily: FF_MONO }}>{name}</div>
+              <div className="text-xs text-zinc-500">{note}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      <div className="text-xs text-zinc-600 mt-2" style={{ fontFamily: FF_MONO }}>
+        All morning fasted · Confirm dosing with your doctor
+      </div>
+    </div>
+  );
+}
+
 // ============ READINESS LABEL ============
 function readinessLabel(r) {
   if (r <= 3) return { label: "RECOVER", color: "text-red-400" };
@@ -334,10 +419,20 @@ function DaySummary({ data, streak }) {
 
 // ============ MAIN COMPONENT ============
 export default function MorningCheckIn({ readinessCallback }) {
-  const [state, setState] = useState(() => loadToday() || { ...DEFAULT_STATE });
-  const [saved, setSaved] = useState(!!loadToday());
-  const [editing, setEditing] = useState(!loadToday());
-  const [streak, setStreak] = useState(loadStreak());
+  const [state, setState] = useState(DEFAULT_STATE);
+  const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(true);
+  const [streak, setStreak] = useState({ count: 0, last: "" });
+
+  useEffect(() => {
+    const data = loadToday();
+    if (data) {
+      setState(data);
+      setSaved(true);
+      setEditing(false);
+    }
+    setStreak(loadStreak());
+  }, []);
 
   const set = (key, val) => setState(s => ({ ...s, [key]: val }));
 
@@ -422,6 +517,9 @@ export default function MorningCheckIn({ readinessCallback }) {
         value={state.caffeineDelayed}
         onChange={v => set("caffeineDelayed", v)}
       />
+
+      {/* PEPTIDES */}
+      <PeptideChecklist />
 
       {/* MINDSET */}
       <SectionLabel>Mindset</SectionLabel>
